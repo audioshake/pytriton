@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-.PHONY: clean clean-build clean-tritonserver clean-pyc clean-docs clean-test docs lint test coverage release dist build-triton extract-triton install install-dev help
+.PHONY: clean clean-build clean-tritonserver clean-pyc clean-docs clean-test docs lint test coverage release dist dist-ngc build-triton extract-triton install install-dev help
 .DEFAULT_GOAL := help
 
 define BROWSER_PYSCRIPT
@@ -106,6 +106,11 @@ dist: clean build-triton extract-triton ## builds source and wheel package
 	find ./dist -iname *-linux*.whl -type f -delete
 	ls -lh dist
 	twine check dist/*
+
+dist-ngc: ## build the wheel on an NGC Triton release (TRITON_RELEASE=25.07 by default) into dist/
+	docker buildx build --platform linux/amd64 $(if $(TRITON_RELEASE),--build-arg TRITON_RELEASE=$(TRITON_RELEASE)) \
+		-f scripts/Dockerfile.ngc --output type=local,dest=dist .
+	ls -lh dist
 
 build-triton: ## build Triton with Python Stubs
 	bash ./scripts/build_triton.sh $(TRITONSERVER_IMAGE_NAME) $(PYTRITON_IMAGE_NAME) $(PLATFORM)

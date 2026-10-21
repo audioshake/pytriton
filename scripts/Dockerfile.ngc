@@ -1,0 +1,62 @@
+# syntax=docker/dockerfile:1
+# Copyright (c) 2026, AudioShake. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# The PyTriton wheel on an NGC Triton release, built with `make dist-ngc`. The release's Python
+# backend handles numpy 2 from 24.12 on (pybind11 2.12); 0.7.0's bundled 24.10 corrupts tensors.
+
+ARG TRITON_RELEASE=25.07
+ARG UV_VERSION=0.11.26
+
+FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
+
+FROM nvcr.io/nvidia/tritonserver:${TRITON_RELEASE}-py3 AS build
+ARG TRITON_RELEASE
+ARG PYTRITON_VERSION=0.7.0
+# The release points PYTHONPATH at DALI's backend, which vendors its own `wheel`.
+ENV PYTHONPATH=
+
+COPY . /src
+WORKDIR /src
+
+# The tree `make extract-triton` produces. The release's stub is built for its system Python, so
+# the wheel ships one stub, for that Python version.
+RUN python_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') \
+  && dest=pytriton/tritonserver \
+  && mkdir -p "$dest/bin" "$dest/backends/python" "$dest/caches/local" "$dest/python_backend_stubs/$python_version" \
+  && cp /opt/tritonserver/bin/tritonserver "$dest/bin/" \
+  && cp /opt/tritonserver/backends/python/libtriton_python.so \
+    /opt/tritonserver/backends/python/triton_python_backend_utils.py "$dest/backends/python/" \
+  && cp /opt/tritonserver/caches/local/libtritoncache_local.so "$dest/caches/local/" \
+  && cp /opt/tritonserver/backends/python/triton_python_backend_stub "$dest/python_backend_stubs/$python_version/"
+
+# auditwheel grafts every library the binaries link except glibc's, and tags the wheel with the
+# release's glibc. It also drops libpython from every binary, which suits extension modules but
+# not the stub, an executable that embeds the interpreter: the stub gets it back from the host.
+RUN --mount=from=uv,source=/uv,target=/usr/local/bin/uv \
+  --mount=from=uv,source=/uvx,target=/usr/local/bin/uvx \
+  version="${PYTRITON_VERSION}.post$(echo "$TRITON_RELEASE" | tr -d .)" \
+  && python_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') \
+  && glibc=$(ldd --version | head -1 | grep -oE '[0-9]+\.[0-9]+$' | tr . _) \
+  && SETUPTOOLS_SCM_PRETEND_VERSION="$version" uv build --wheel --out-dir dist \
+  && LD_LIBRARY_PATH=/opt/tritonserver/lib uvx --from auditwheel==6.8.2 --with patchelf==0.17.2.4 \
+    auditwheel repair --plat "manylinux_${glibc}_x86_64" --wheel-dir repaired dist/*.whl \
+  && uvx --from wheel==0.45.1 wheel unpack --dest unpacked repaired/*.whl \
+  && uvx --from patchelf==0.17.2.4 patchelf --add-needed "libpython${python_version}.so.1.0" \
+    "unpacked/nvidia_pytriton-${version}/pytriton/tritonserver/python_backend_stubs/${python_version}/triton_python_backend_stub" \
+  && mkdir wheelhouse \
+  && uvx --from wheel==0.45.1 wheel pack --dest-dir wheelhouse "unpacked/nvidia_pytriton-${version}"
+
+FROM scratch
+COPY --from=build /src/wheelhouse/ /
