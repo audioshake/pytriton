@@ -31,8 +31,9 @@ COPY . /src
 WORKDIR /src
 
 # The tree `make extract-triton` produces. The release's stub is built for its system Python, so
-# the wheel ships one stub, for that Python version.
+# the wheel ships one stub, for that Python version, which requires-python must name.
 RUN python_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') \
+  && grep -q "^requires-python = \">=${python_version},<" pyproject.toml \
   && dest=pytriton/tritonserver \
   && mkdir -p "$dest/bin" "$dest/backends/python" "$dest/caches/local" "$dest/python_backend_stubs/$python_version" \
   && cp /opt/tritonserver/bin/tritonserver "$dest/bin/" \

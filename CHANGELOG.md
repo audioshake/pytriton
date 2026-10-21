@@ -20,6 +20,7 @@ limitations under the License.
 
 - Built on NGC Triton 25.07 (`make dist-ngc`), whose Python backend handles numpy 2
 - `numpy < 2.0.0` cap removed
+- Requires Python 3.12, the only version its stub runs under
 
 ## 0.7.0 (2025-08-08)
 
