@@ -16,6 +16,11 @@ limitations under the License.
 
 # Changelog
 
+## 0.7.0.post2507 (AudioShake fork)
+
+- Built on NGC Triton 25.07 (`make dist-ngc`), whose Python backend handles numpy 2
+- `numpy < 2.0.0` cap removed
+
 ## 0.7.0 (2025-08-08)
 
 ### Added

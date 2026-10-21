@@ -16,6 +16,12 @@ limitations under the License.
 
 # PyTriton
 
+> **AudioShake fork.** Built on a recent NGC Triton release so the bundled Python backend handles
+> numpy 2: upstream 0.7.0 bundles Triton 24.10, which predates pybind11 2.12 and returns corrupt or
+> empty tensors under numpy 2. `make dist-ngc TRITON_RELEASE=25.07` builds
+> `nvidia_pytriton-0.7.0.post2507-py3-none-manylinux_2_39_x86_64.whl` into `dist/`, with one stub
+> for the release's Python (3.12); publish it with `uv publish`.
+
 Welcome to PyTriton, a Flask/FastAPI-like framework designed to streamline the use of NVIDIA's [Triton Inference Server](https://github.com/triton-inference-server) within Python environments. PyTriton enables serving Machine Learning models with ease, supporting direct deployment from Python.
 
 For comprehensive guidance on how to deploy your models, optimize performance, and explore the API, delve into the extensive resources found in our [documentation](https://triton-inference-server.github.io/pytriton).
