@@ -35,7 +35,8 @@ authors = []
 maintainers = []
 keywords = []
 license = { text = "Apache 2.0" }
-requires-python = ">=3.8,<4"
+# The wheel bundles one Python backend stub, built for the NGC release's system Python.
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "numpy >= 1.21",
     "protobuf >= 3.7",
